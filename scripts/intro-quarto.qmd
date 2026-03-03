@@ -1,0 +1,71 @@
+---
+title: "Introduction to Quarto"
+format: html
+bibliography: references.bib
+---
+
+# 1. Introduction
+
+## a. About the data
+
+-   Water sample data from the Arctic Ocean
+-   Data downloaded from the Arctic Data Center: [Tweedie ADC data](https://arcticdata.io/catalog/view/doi:10.18739/A25T3FZ8X) ##b. Setup
+
+```{r}
+#install.packages("readr")
+library(readr)
+library(here)
+```
+
+## c. Read in data
+```{r}
+#| warning: false
+bg_chem <- read_csv(here("data/BGchem2008data.csv"))
+```
+
+# 2. Analysis
+## a. Calculate summary statistics
+```{r}
+#| eval: false #(does not evaluate)
+##| echo: false #(doesn't show the source code at all)
+
+#  Print column names
+colnames(bg_chem)
+
+# Show data structure
+str(bg_chem)
+
+# Show the first 6 lines of the data frame
+head(bg_chem)
+
+# Get summary of each column
+summary(bg_chem)
+
+#Print each unique value in specific column
+unique(bg_chem$Date)
+
+
+
+```
+
+## b. Calculate mean Redfield ratio
+```{r}
+#calculating some means
+nitrate  <- mean(bg_chem$NO3)
+nitrite <- mean(bg_chem$NO2)
+amm <- mean(bg_chem$NH4)
+phos <- mean(bg_chem$P)
+```
+
+## c. Plot Redfield ratio
+```{r}
+ratio <- (nitrate + nitrite + amm)/phos
+```
+Here is the ratio we calculated: `r round(ratio)`
+
+# 3. Conclusion
+```{r}
+# PLotting the parameters
+plot(bg_chem$P, bg_chem$NO2 + bg_chem$NO3 + bg_chem$NH4)
+```
+
