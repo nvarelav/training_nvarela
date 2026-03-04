@@ -10,15 +10,15 @@ library(tidyr)
 library(readr)
 ```
 
-# Data sources
+# 1. Data sources
 
-## Read in our data
+## 1.1 Read in our data
 
 ```{r}
 catch_original <- read_csv("https://knb.ecoinformatics.org/knb/d1/mn/v2/object/df35b.302.1")
 ```
 
-## Explore
+## 1.2 Explore
 
 ```{r}
 #| message: false
@@ -28,9 +28,9 @@ summary(catch_original)
 unique(catch_original$Region)
 ```
 
-# Cleaning & reshaping
+# 2. Cleaning & reshaping
 
-## Using the select function
+## 2.1 Using the select function
 
 ```{r}
 #Select () to keep the coluns that want
@@ -44,13 +44,13 @@ head(catch_data)
 
 ```
 
-## check columns type
+## 2.2 Check columns type
 
 ```{r}
 glimpse(catch_data)
 ```
 
-#Changing column contents with mutate ()
+## 2.3 Changing column contents with mutate ( )
 
 ```{r}
 #Change Chinook to numeric
@@ -80,7 +80,7 @@ head(catch_clean)
 catch_clean[i,]
 ```
 
-## Changing file shape using pivot_longer and pivot_wider ()
+## 2.4 Changing file shape using pivot_longer and pivot_wider ( )
 
 ```{r}
 catch_long <- catch_clean %>%
@@ -98,7 +98,7 @@ head(catch_wide)
 
 ```
 
-## Rename the columns with the rename function
+## 2.5 Rename the columns with rename ( )
 
 ```{r}
 catch_long <- catch_long %>%
@@ -115,7 +115,7 @@ head(catch_long)
   
 ```
 
-# removing the "catch_thousands" columns
+#removing the "catch_thousands" column
 
 ```{r}
 catch_long <- catch_long %>%
@@ -125,7 +125,7 @@ catch_long <- catch_long %>%
 head(catch_long)
 ```
 
-#summary statistics
+# 3. Summary statistics
 
 ```{r}
 #. get the average by region
@@ -144,7 +144,7 @@ head(n_region)
 
 ```
 
-# Filter rows using filter()
+## 3.1 Filter rows using filter( )
 
 ```{r}
 sse_catch <- catch_long %>%
@@ -165,7 +165,7 @@ chinook_sse <- catch_long %>%
            species == "Chinook")
 ```
 
-## Sorting data with arrange ()
+## 3.2 Sorting data with arrange ( )
 
 ```{r}
 #using desc()
@@ -176,7 +176,7 @@ mean_region <- catch_long %>%
 head(mean_region)
 ```
 
-## Combining datasets together with join
+## 3.3 Combining datasets together with join ( )
 
 ```{r}
 region_defs <- read.csv("https://knb.ecoinformatics.org/knb/d1/mn/v2/object/df35b.303.1") %>% 
@@ -198,7 +198,7 @@ head(catch_joined)
 
 ```
 
-## split and combine values in columnns
+## 3.4 Split and combine values in columnns
 
 ```{r}
 #Creating a data fram with three codes and values
@@ -239,7 +239,7 @@ mean_region  <- catch_original %>%
   arrange(desc(mean_catch))
 ```
 
-## save our results with write_csv()
+# 4. Save our results with write_csv()
 
 ```{r}
 library(here)
