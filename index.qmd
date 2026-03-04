@@ -3,3 +3,11 @@ title: "GitHub Pages Example"
 format: html
 ---
 
+# Course lessons
+- Intro to Quarto
+- Intro to Git and GitHub
+- Cleaning and Wrangling data
+
+## Practice schedule
+- Practice I
+- Practice II
