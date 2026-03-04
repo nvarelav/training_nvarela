@@ -157,7 +157,7 @@ head(sse_catch)
 catch_million_fish <- catch_long %>%
     filter(catch > 1000000)
 
-head(million_fish)
+head(catch_million_fish)
 
 ## Chinook from SSE data (two at a time)
 chinook_sse <- catch_long %>%
