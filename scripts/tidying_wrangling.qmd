@@ -1,0 +1,247 @@
+---
+title: "Tidying and Wrangling"
+format: html
+---
+
+```{r}
+#| message: false
+library(dplyr)
+library(tidyr)
+library(readr)
+```
+
+# Data sources
+
+## Read in our data
+
+```{r}
+catch_original <- read_csv("https://knb.ecoinformatics.org/knb/d1/mn/v2/object/df35b.302.1")
+```
+
+## Explore
+
+```{r}
+#| message: false
+colnames(catch_original)
+head(catch_original)
+summary(catch_original)
+unique(catch_original$Region)
+```
+
+# Cleaning & reshaping
+
+## Using the select function
+
+```{r}
+#Select () to keep the coluns that want
+catch_data <- catch_original %>% 
+  select( Region, Year, Chinook, Sockeye, Coho, Pink, Chum)
+head(catch_data)
+
+catch_data_2 <- catch_original %>% 
+  select( -All, -notesRegCode)
+head(catch_data)
+
+```
+
+## check columns type
+
+```{r}
+glimpse(catch_data)
+```
+
+#Changing column contents with mutate ()
+
+```{r}
+#Change Chinook to numeric
+catch_clean <- catch_data %>% 
+  mutate(Chinook = as.numeric(Chinook))
+```
+
+```{r}
+is.na(catch_clean$Chinook)
+
+#get the location of the NA value
+i  <-which (is.na(catch_clean$Chinook))
+i
+
+# look at the row in the data
+catch_data[i,]
+
+# use mutate to fix
+catch_clean <- catch_data %>% 
+  mutate(Chinook = if_else(condition = Chinook == "I",
+                           true = "1",
+                           false = Chinook),
+         Chinook = as.numeric(Chinook))
+head(catch_clean)
+
+# To check for the row (401) that had the issue:
+catch_clean[i,]
+```
+
+## Changing file shape using pivot_longer and pivot_wider ()
+
+```{r}
+catch_long <- catch_clean %>%
+  pivot_longer(cols = -c(Region, Year),
+               names_to = "species",
+               values_to = "catch")
+head(catch_long)
+
+# Using the wide function., it comes back to the previous dataset:
+
+catch_wide <- catch_long %>%
+  pivot_wider(names_from = "species",
+              values_from = "catch")
+head(catch_wide)
+
+```
+
+## Rename the columns with the rename function
+
+```{r}
+catch_long <- catch_long %>%
+  rename(catch_thousands = catch)
+
+head(catch_long)
+```
+
+```{r}
+catch_long <- catch_long %>%
+    mutate(catch = catch_thousands * 1000)
+
+head(catch_long)
+  
+```
+
+# removing the "catch_thousands" columns
+
+```{r}
+catch_long <- catch_long %>%
+    mutate(catch = catch_thousands * 1000) %>%
+    select(-catch_thousands)
+
+head(catch_long)
+```
+
+#summary statistics
+
+```{r}
+#. get the average by region
+mean_region <- catch_long %>%
+    group_by(Region) %>% #we pipe again because it is for each of those groups
+    summarize(mean_catch = mean(catch))
+
+head(mean_region)
+
+# get the number of rows for each group
+n_region <- catch_long %>%
+    group_by(Region) %>%
+    summarize(n = n()) #function n will get the counts
+
+head(n_region)
+
+```
+
+# Filter rows using filter()
+
+```{r}
+sse_catch <- catch_long %>%
+    filter(Region == "SSE")
+
+head(sse_catch)
+
+## try filtering where catch column is 1 million fish
+
+catch_million_fish <- catch_long %>%
+    filter(catch > 1000000)
+
+head(million_fish)
+
+## Chinook from SSE data (two at a time)
+chinook_sse <- catch_long %>%
+    filter(Region == "SSE",
+           species == "Chinook")
+```
+
+## Sorting data with arrange ()
+
+```{r}
+#using desc()
+mean_region <- catch_long %>%
+    group_by(Region) %>% 
+             summarise(mean_catch = mean(catch)) %>% 
+               arrange(desc(mean_catch))
+head(mean_region)
+```
+
+## Combining datasets together with join
+
+```{r}
+region_defs <- read.csv("https://knb.ecoinformatics.org/knb/d1/mn/v2/object/df35b.303.1") %>% 
+    select(code, mgmtArea)
+
+head(region_defs)
+
+catch_joined <- left_join(catch_long, region_defs, by = c("Region" = "code"))
+                          
+head(catch_joined)
+```
+
+```{r}
+region_defs <- read.csv("https://knb.ecoinformatics.org/knb/d1/mn/v2/object/df35b.303.1") %>% 
+  rename(Region = code, Region_name = mgmtArea)
+
+catch_joined <- left_join(catch_joined, region_defs, by = c("Region"))
+head(catch_joined)
+
+```
+
+## split and combine values in columnns
+
+```{r}
+#Creating a data fram with three codes and values
+sites_df  <- data.frame(site = c("HAW-101",
+                                 "HAW-103",
+                                 "OAH-320"))
+head(sites_df)
+
+split_df  <- sites_df %>% 
+  separate(site, c("island", "site_number"), sep = "-")
+```
+
+```{r}
+dates_df  <- data.frame(
+  year = c("1930", "1930", "1932"),
+  month = c("12", "12", "12"),
+  day = c("14", "15", "16")
+)
+
+dates_unite  <- dates_df %>%
+  unite(col = date, year, month, day, sep = "/")
+head(dates_unite)
+```
+
+```{r}
+mean_region  <- catch_original %>% 
+  select(-All, -notesRegCode) %>% 
+  mutate(Chinook = if_else(condition = Chinook == "I",
+                           true = "1",
+                           false = Chinook),
+         Chinook = as.numeric(Chinook)) %>% 
+  pivot_longer(-c(Region, Year),
+               names_to ="species",
+               values_to = "catch") %>% 
+  mutate(catch = catch * 1000) %>% 
+  group_by(Region) %>% 
+  summarise(mean_catch = mean(catch)) %>% 
+  arrange(desc(mean_catch))
+```
+
+## save our results with write_csv()
+
+```{r}
+library(here)
+write_csv(mean_region, here("data/mean_catch_by_region.csv"))
+```
