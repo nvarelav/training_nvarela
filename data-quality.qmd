@@ -1,0 +1,81 @@
+---
+title: "Data Quality"
+format: html
+---
+
+## Quick data summaroes using `skimr` and `visdat`
+```{r}
+#| message: false
+#| warming: false
+library(skimr)
+library(readr)
+library(visdat)
+library(dplyr)
+library(pointblank)
+library(ggplot2)
+```
+
+```{r}
+#| message: false
+bg_chem <- read_csv("data/BGchem2008data.csv")
+```
+
+```{r}
+skim(bg_chem)
+#skim can show values by grouping variables
+bg_chem %>% 
+  select(Station, O2) %>% 
+  group_by(Station) %>% 
+  skim()
+```
+
+```{r}
+# now, to clean up the -99999 values: NOT WORKING
+bg_chem_clean  <- bg_chem %>% 
+  mutate(02 = na.if (02,-99))
+```
+
+```{r}
+#it creates "NA"s in those spaces from the get go
+bg_chem_clean <- read_csv("data/BGchem2008data.csv", na = "-99")
+```
+
+```{r}
+
+library(ggplot2)
+
+#it will plot missing values in a visual way; like a data map of the type of objects
+vis_dat(bg_chem_clean) + 
+    theme(axis.text.x = element_text(angle = 45, vjust = 0))
+```
+```{r}
+#Similar to skimr, you can also group (in this case facet) the output by a variable
+vis_dat(bg_chem_clean, facet = Station) +
+    theme(axis.text.x = element_text(angle = 45, vjust = 0))
+
+```
+## Formalized Validation with `pointblank`
+
+```{r}
+# col_vals_gt: a column value that follows a certain condition (in this case "greater than")
+t <- bg_chem_clean %>% 
+    col_vals_gt(columns = O2, value = 0, na_pass = TRUE) %>% #once this is ok, we can then add the next line and made the modification in a corrected data table
+mutate(important_metric = O2 * 0.123)
+```
+
+## Validation reporting
+
+```{r}
+al <- action_levels(warn_at = 1, stop_at = 10)
+al_latlon <- action_levels(warn_at = 1, stop_at = 1)
+
+#creating rules for the data
+bg_chem_clean %>% 
+    create_agent(actions = al) %>% 
+    col_vals_gt(vars(O2, NO3, NO2, NH4, P, Si), value = 0, na_pass = TRUE)%>% 
+    col_vals_between(columns = vars(CTD_Salinity, Bottle_Salinity), left = 0, right = 42, na_pass = TRUE) %>% 
+    col_vals_between(Latitude, left = -90, right = 90, actions = al_latlon) %>%
+    col_vals_between(Longitude, left = -180, right = 180, actions = al_latlon) %>% 
+    interrogate()
+```
+
