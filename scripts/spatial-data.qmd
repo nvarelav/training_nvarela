@@ -1,0 +1,273 @@
+---
+title: "Title it “Working with Spatial Data in R"
+format: html
+---
+```{r}
+#| message: false
+library(readr)
+library(here)
+library(sf)
+library(ggplot2)
+library(leaflet)
+library(scales)
+library(ggspatial)
+library(dplyr)
+```
+
+
+# Load File from KNB
+```{r}
+knb_url <- "https://dev.nceas.ucsb.edu/knb/d1/mn/v2/object/urn%3Auuid%3Aaceaecb2-1ce0-4d41-a839-d3607d32bb58"
+
+#download the zip file
+download.file(url = knb_url, destfile = '../data/shapefile_demo_data.zip')
+
+#unzipping
+unzip('../data/shapefile_demo_data.zip', exdir = '../data')
+
+#remove the zip file
+file.remove('../data/shapefile_demo_data.zip')
+```
+
+## Exploring the data using plot() and st_crs()
+
+```{r}
+# read in shapefile using read_sf()
+ak_rgns_sf <- read_sf('../data/ak_regions_simp.shp')
+
+# quick plot
+plot(ak_rgns_sf)
+```
+```{r}
+#Class of an object
+class(ak_rgns_sf)
+
+head(ak_rgns_sf)
+
+glimpse(ak_rgns_sf)
+```
+# Coordinate Reference System (CRS)
+
+```{r}
+# what is the coordinate system of a project
+st_crs(ak_rgns_sf)
+```
+## Transform your geospatial data from one coordinate system to another
+```{r}
+ak_rgns_3338_sf <- ak_rgns_sf %>%
+    st_transform(crs = 3338)
+
+st_crs(ak_rgns_3338_sf)
+
+plot(ak_rgns_3338_sf)
+```
+## sf and dplyr
+
+```{r}
+# return the name of all the columns
+colnames(ak_rgns_3338_sf)
+
+ak_rgns_3338_sf %>% 
+  select(region)
+```
+```{r}
+# to find out the names of the different regions in the dataset
+unique(ak_rgns_3338_sf$region)
+
+ak_rgns_3338_sf %>% 
+  filter(region == "Southeast")
+```
+## Spatial joins
+```{r}
+
+#Read in the population data from a csv and turn it into an sf object
+pop_df <- read_csv('../data/alaska_population.csv')
+
+pop_4326_sf <- st_as_sf(pop_df,
+                        coords = c('lng', 'lat'),
+                        crs = 4326,
+                        remove = F) #not removing the lat and lng columns
+
+head(pop_4326_sf)
+class(pop_4326_sf)
+```
+
+#Use a spatial join (st_join()) to assign each city to a region
+
+```{r}
+# we need to change the coordinates to match between the two data.frames
+pop_3338_sf <- st_transform(pop_4326_sf, 
+                            crs = 3338)
+
+#then we can join them together
+pop_joined_sf <- st_join(pop_3338_sf, 
+                         ak_rgns_3338_sf, 
+                         join = st_within) 
+
+head(pop_joined_sf)
+```
+
+#Use group_by() and summarize() to calculate the total population by region
+```{r}
+pop_region <- pop_joined_sf %>% 
+  as.data.frame() %>% #will remove geometry, sf --dataframe
+  group_by(region) %>% 
+  summarize(total_pop = sum(population))
+
+head(pop_region)
+class(pop_region)
+```
+
+## population by region
+```{r}
+pop_region_3338  <- left_join(ak_rgns_3338_sf,
+                              pop_region,
+                              by = "region")
+# plot of the population by region
+plot(pop_region_3338["total_pop"])
+
+
+```
+
+## population by managment area
+```{r}
+pop_mgmt_3338_sf <- pop_region_3338%>%
+    group_by(mgmt_area) %>%
+    summarize(total_pop = sum(total_pop), do_union = F)
+
+#If we don’t want to combine geometries, we can specify do_union = F as an argument.
+
+plot(pop_mgmt_3338_sf["total_pop"])
+```
+## Save the spatial object you created using write_sf()
+```{r}
+write_sf(pop_region_3338,"../data/ak_regions_populations.shp")
+```
+
+# Visualize with ggplot
+
+```{r}
+ggplot(pop_region_3338) +
+    geom_sf(aes(fill = total_pop)) +
+    labs(fill = "Total Population") +
+    scale_fill_continuous(low = "khaki",
+                          high =  "firebrick",
+                          labels = comma) + #this allows to spcify the type of value format (in this case, instead of exponential)
+    theme_bw()
+```
+## add rivers in Alaska and plot them by size
+```{r}
+rivers_3338_sf <- read_sf("../data/ak_rivers_simp.shp")
+st_crs(rivers_3338_sf)
+
+ggplot()+
+  geom_sf(data = pop_region_3338,
+          aes(fill = total_pop))+
+  geom_sf(data = pop_3338_sf,
+          size = 0.5)+
+  geom_sf(data = rivers_3338_sf,
+          aes(linewidth = StrOrder))+ #Strahler stream order (larger number = larger river)
+  scale_linewidth(range = c(0.05, 0.5), guide = "none") +
+  labs(title = "Total Population by Alaska Region",
+         fill = "Total Population") +
+    scale_fill_continuous(low = "khaki",
+                          high =  "firebrick",
+                          labels = comma) +
+    theme_bw()
+
+
+```
+
+# Incorporate base maps into static maps using ggspatial
+Pseudo-mercator (EPGS 3857)
+
+```{r}
+#changing the EPGS
+pop_3857_sf <- st_transform(pop_3338_sf, 
+                         crs = 3857)
+
+# plotting
+ggplot(data = pop_3857_sf) +
+    ggspatial::annotation_map_tile(type = "osm", #"osm" are the tiles
+                                   zoom = 4, #type of zoom
+                                   progress = 'none') + # higher zoom values are more detailed
+    geom_sf(aes(color = population),
+            fill = NA) +
+    scale_color_continuous(low = "darkkhaki",
+                           high =  "firebrick",
+                           labels = comma)
+```
+
+# Visualize sf objects with leaflet
+```{r}
+# first need to save our custom projection for leaflet
+
+epsg3338 <- leaflet::leafletCRS(
+    crsClass = "L.Proj.CRS", # what projection library to use
+    code = "EPSG:3338", # CRS code
+    proj4def =  "+proj=aea +lat_1=55 +lat_2=65 +lat_0=50 +lon_0=-154 +x_0=0 +y_0=0 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs",# this is from the definition of the proj.
+    resolutions = 2 ^ (16:7) #dividing the scale in 8*2
+)
+
+#You might notice that this looks familiar! The syntax is a bit different, but most of this information is also contained within the crs of our shapefile:
+st_crs(pop_region_3338)
+```
+
+## Since leaflet requires that we use an unprojected coordinate system, let’s use st_transform() yet again to get back to WGS84.
+
+```{r}
+pop_rgn_4326_sf <- pop_region_3338 %>% 
+    st_transform(crs = 4326)
+st_crs(pop_rgn_4326_sf)
+
+pop_4326_joined <- pop_joined_sf %>% 
+    st_transform(crs = 4326)
+st_crs(pop_4326_joined)
+```
+
+## make leaflet map
+
+```{r}
+m <- leaflet(options = leafletOptions(crs = epsg3338)) %>%
+    addPolygons(data = pop_rgn_4326_sf,
+                fillColor = "gray",
+                weight = 1)
+
+m
+```
+
+## make a better map
+```{r}
+pal <- colorNumeric(palette = "Reds", 
+                    domain = pop_rgn_4326_sf$total_pop)
+m <- leaflet(options = leafletOptions(crs = epsg3338)) %>%
+    addPolygons(
+        data = pop_rgn_4326_sf,
+        fillColor = ~ pal(total_pop), #here we access the palette that we just created (using ~)
+        weight = 1,
+        color = "black",
+        fillOpacity = 1,
+        label = ~ region
+    ) %>% 
+  addCircleMarkers(
+        data = pop_4326_joined,
+        lat = ~ lat,
+        lng = ~ lng,
+        radius = ~ log(population / 500),
+        # arbitrary scaling
+        fillColor = "gray",
+        fillOpacity = 1,
+        weight = 0.25,
+        color = "black",
+        label = ~ paste0(pop_4326_joined$city, ", population ", comma(pop_4326_joined$population))
+    ) %>% 
+    addLegend(
+        position = "bottomleft",
+        pal = pal,
+        values = range(pop_4326_sf$total_pop),#creating a range using the range function, on a det. column
+        title = "Total Population"
+    )
+
+m
+```
+
