@@ -25,10 +25,40 @@ species <- tbls[[1]] %>%
 head(species, 3)
 ```
 ```{r}
+#| message: false
 #download the data
-pred <- read_csv("https://arcticdata.io/metacat/d1/mn/v2/object/urn%3Auuid%3A9ffec04c-7e2d-41dd-9e88-b6c2e8c4375e")
-nest <- read_csv("https://arcticdata.io/metacat/d1/mn/v2/object/urn%3Auuid%3A982bd2fc-4edf-4da7-96ef-0d11b853102d")
-egg  <- read_csv("https://arcticdata.io/metacat/d1/mn/v2/object/urn%3Auuid%3A4b219711-2282-420a-b1d6-1893fe4a74a6")
+pred <- read_csv("https://arcticdata.io/metacat/d1/mn/v2/object/urn%3Auuid%3A9ffec04c-7e2d-41dd-9e88-b6c2e8c4375e",show_col_types = FALSE)
+nest <- read_csv("https://arcticdata.io/metacat/d1/mn/v2/object/urn%3Auuid%3A982bd2fc-4edf-4da7-96ef-0d11b853102d", show_col_types = FALSE)
+egg  <- read_csv("https://arcticdata.io/metacat/d1/mn/v2/object/urn%3Auuid%3A4b219711-2282-420a-b1d6-1893fe4a74a6", show_col_types = FALSE)
+
+```
+
+#Question 1: data.frames + glimpse ( )
+
+```{r}
+#Question 1
+nest_data <- data.frame(nest)
+predator_survey <- data.frame(pred)
+egg_measures <- data.frame(egg)
+
+glimpse(nest_data)
+glimpse(predator_survey)
+glimpse(egg_measures)
+
+colnames(predator_survey)
+```
+
+#Question 2: species codes into common names 
+
+```{r}
+pred_comm_names  <- left_join(predator_survey, 
+                              species,
+                              by = join_by(species == alpha_code))
+
+```
+
+#Question 3: make it into a function
+```{r}
 
 ```
 
